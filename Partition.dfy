@@ -4,11 +4,12 @@ method Partition(a: array<int>, left: nat, right: nat, x: int)
   requires 0 <= left < right <= a.Length
   ensures left <= m <= n <= right
   ensures a[..left] == old(a[..left])
-  ensures forall i | left <= i < m :: a[i] < x
-  ensures forall i | m <= i < n :: a[i] == x
-  ensures forall i | n <= i < right :: a[i] > x
+  ensures forall i | i in a[left..m] :: i < x
+  ensures forall i | i in a[m..n] :: i == x
+  ensures forall i | i in a[n..right] :: i > x
   ensures a[right..] == old(a[right..])
-  ensures (exists i | left <= i < right :: a[i] == x) ==> m < n
+  ensures forall i | i in a[left..right] :: i in old(a[left..right])
+  ensures x in a[left..right] ==> m < n
 {
   m, n := left, left;
   var k := right - 1;
@@ -21,6 +22,8 @@ method Partition(a: array<int>, left: nat, right: nat, x: int)
     invariant forall i | m <= i < n :: a[i] == x
     invariant forall i | k + 1 <= i < right :: a[i] > x
     invariant a[right..] == old(a[right..])
+    invariant forall i | i in a[left..right] :: i in old(a[left..right])
+    invariant x in a[left..n] ==> m < n
   {
     if (a[n] < x) {
       a[m], a[n] := a[n], a[m];
