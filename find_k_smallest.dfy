@@ -34,18 +34,66 @@
 include "Io.dfy"
 include "Find.dfy"
 
-method {:main} Main(ghost env:HostEnvironment?)
+predicate isDigit(c: char) {
+  '0' <= c <= '9'
+}
+
+function digit(c: char): nat
+requires isDigit(c)
+ensures 0 <= digit(c) <= 9
+{
+  (c - '0') as nat
+}
+
+function digitChar(n: nat): char
+requires n < 10
+ensures '0' <= digitChar <= '9'
+{
+  (c + '0') as char
+}
+
+predicate isNatStr(s: string)
+{
+  forall c | c in s :: isDigit(c)
+}
+
+function strToNat(s: string): nat
+requires isNatStr(s)
+ {
+  if |s| == 0 then 0 else strToNat(s[..|s| - 1]) * 10 + digit(s[0])
+}
+
+function natToStr(i: nat): string
+{
+  if i < 10 then [digitChar(i)] else natToStr(i / 10) + [digitChar(i % 10)]
+}
+
+predicate isIntStr(s: string)
+{
+  (s[0] == '-' || isDigit(s[0])) && isNatStr(s[1..])
+}
+
+function strToInt(s: string): int
+requires isIntStr(s)
+{
+  if s[0] == '-' then -strToNat(s[1..]) else strToNat(s)
+}
+
+function intToStr(i: int): string
+{
+  if i < 0 then ['-'] + natToStr(-i) else natToStr(i)
+}
+
+method {:main} Main(ghost env :HostEnvironment?)
   requires env != null && env.Valid() && env.ok.ok()
   modifies env.ok, env.files // necessário quando chama FileStream.Open
 {
-  //print "TODO!\n";
-
   // ====  1. argumentos da linha de comandos ===
 
   // verificar número de argumentos dados na linha de comandos
   var numArgs: uint32 := HostConstants.NumCommandLineArgs(env);
-  if (numArgs != 3) { // TODO: 3 ou 4?
-    print("Error: Expected 3 arguments. Usage: <K> <source_file> <destination_file>\n");
+  if (numArgs != 4) { // TODO: 3 ou 4?
+    print "Error: Expected 3 arguments, found ", numArgs, ". Usage: <K> <source_file> <destination_file>\n";
     return;
   }
   // Pegar argumentos da linha de comandos
@@ -53,8 +101,12 @@ method {:main} Main(ghost env:HostEnvironment?)
   var sourceFile: array<char> := HostConstants.GetCommandLineArg(1, env);
   var destFile: array<char> := HostConstants.GetCommandLineArg(2, env);
 
-  // TODO: Fazer parse de um inteiro para reconhecer k. tenho que criar método ou function ParseInt??
-  // var k: int := CharArrayToInt()
+  if (!isNatStr(kString)) {
+    print("Error: k must be a natural number\n");
+    return;
+  }
+
+  var k := strToNat(kString)
 
   //  ==== 2. verificar exixtência de ficheiros e abri-los  ====
 
@@ -65,14 +117,16 @@ method {:main} Main(ghost env:HostEnvironment?)
     return;
   }
 
+  //  ==== 3. ler o source, encontrar o k elemento e retornar array  ====
+
   // Abrir source para ler os números
-   var sourceFileStream: FileStream;
-   var ok: bool;
-    ok, sourceFileStream := FileStream.Open(sourceFile, env);
-    if (!ok) {
-        print ("Error: Unable to open source file.\n");
-        return;
-    }
+  var sourceFileStream: FileStream;
+  var ok: bool;
+  ok, sourceFileStream := FileStream.Open(sourceFile, env);
+  if (!ok) {
+      print ("Error: Unable to open source file.\n");
+      return;
+  }
 
   var fileLength: int32;
   ok, fileLength := FileStream.FileLength(sourceFile, env);
@@ -81,47 +135,65 @@ method {:main} Main(ghost env:HostEnvironment?)
         return;
   }
 
-  
-  // TODO: Loop pra guardar  números do ficheiro pra um array. Não sei porraa nenhuma
-/*
-var bytesRead: nat32 := 0;
-while bytesRead < fileLength as nat32
-{
-    var readBuffer := new byte[4]; // Integer has 4 bytes
-    ok := sourceFileStream.Read(bytesRead, readBuffer, 0, 4);
-    if (!ok) {
-        var temp: bool := sourceFileStream.Close();
-        if (temp) {
-            print("Error: Unable to read from source file.\n");
-            return;
+  var inputNumbers: seq<int> := [];
+  var numberStr: string := [];
+  var bytesRead: nat32 := 0;
+  while bytesRead < fileLength as nat32
+  {
+      var readBuffer := new byte[1]; // Integer has 4 bytes
+      ok := sourceFileStream.Read(bytesRead, readBuffer, 0, 1);
+      if (!ok) {
+          var temp: bool := sourceFileStream.Close();
+          if (temp) {
+              print("Error: Unable to read from source file.\n");
+              return;
+          }
+          print("Error: Error closing file after trying to close file\n");
+          return;
+      }
+
+      if (readBuffer[0] == '\n') {
+        if (!isIntStr(numberStr)) {
+          print("Error: Invalid integer in source file\n");
+          return;
         }
-        print("Error: Error closing file after trying to close file\n");
-        return;
-    }
-    // arraySourceNumbers[bytesRead as int / 4] := ByteArrayToInt(readBuffer); // TODO: Implement ByteArrayToInt
-    bytesRead := bytesRead + 4; // Increment bytesRead by 4
-}
+        inputNumbers := inputNumbers + [strToInt(numberStr)];
+        numnberStr := [];
+      } else {
+        numberStr := numberStr + readBuffer[..];
+      }
 
+      bytesRead := bytesRead + 1;
+  }
 
-  // TODO: Peço desculpas pelo esparguete
-var arraySourceNumbers: array<int> := new int[fileLength];
-var bytesRead: nat32 := 0;
-while bytesRead < fileLength as nat32
-{
-    var readBuffer := new byte[4]; // Integer has 4 bytes
-    ok := sourceFileStream.Read(bytesRead, readBuffer, 0, 4);
-    if (!ok) {
-        var temp: bool := sourceFileStream.Close();
-        if (temp) {
-            print("Error: Unable to read from source file.\n");
-            return;
+  if (|numberStr| > 0) {
+        if (!isIntStr(numberStr)) {
+          print("Error: Invalid integer in source file\n");
+          return;
         }
-        print("Error: Error closing file after trying to close file\n");
-        return;
+        inputNumbers := inputNumbers + [strToInt(numberStr)];
+  }
+
+  var outputNumbers := new int[|inputNumbers|];
+  for (i: nat := 0 to |inputNumbers|) {
+    outputNumbers[i] = inputNumbers[i];
+  }
+
+  Find(outputNumbers, k);
+
+  var ok, destFileStream := FileStream.Open(destFile, env);
+  if (!ok) {
+      print ("Error: Unable to destination source file.\n");
+      return;
+  }
+
+  for i: nat := 0 to outputNumbers.Length {
+    var number := outputNumbers[i];
+    var numberStr := intToStr(number);
+
+    for j: nat := 0 to |numberStr| {
+      destFileStream.Write(numberStr[j]);
     }
-    // arraySourceNumbers[bytesRead as int / 4] := ByteArrayToInt(readBuffer); // TODO: Implement ByteArrayToInt
-    bytesRead := bytesRead + 4; // Increment bytesRead by 4
-} */
-
-
+    destFileStream.Write('\n');
+  }
 }
