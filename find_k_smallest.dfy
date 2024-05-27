@@ -84,7 +84,7 @@ function intToStr(i: int): string
   if i < 0 then ['-'] + natToStr(-i) else natToStr(i)
 }
 
-method {:main} Main(ghost env :HostEnvironment?)
+method {:main} Main(ghost env: HostEnvironment?)
   requires env != null && env.Valid() && env.ok.ok()
   modifies env.ok, env.files // necessário quando chama FileStream.Open
 {
@@ -97,9 +97,9 @@ method {:main} Main(ghost env :HostEnvironment?)
     return;
   }
   // Pegar argumentos da linha de comandos
-  var kString: array<char> := HostConstants.GetCommandLineArg(0, env);
-  var sourceFile: array<char> := HostConstants.GetCommandLineArg(1, env);
-  var destFile: array<char> := HostConstants.GetCommandLineArg(2, env);
+  var kString: array<char> := HostConstants.GetCommandLineArg(1, env);
+  var sourceFile: array<char> := HostConstants.GetCommandLineArg(2, env);
+  var destFile: array<char> := HostConstants.GetCommandLineArg(3, env);
 
   if (!isNatStr(kString[..])) {
     print("Error: K must be a natural number\n");
