@@ -28,7 +28,7 @@
 - TODO: escrever o array todo
 
 5. fechar os ficheiros
-*/ 
+*/
 
 
 include "Io.dfy"
@@ -39,17 +39,17 @@ predicate isDigit(c: char) {
 }
 
 function digit(c: char): nat
-requires isDigit(c)
-ensures 0 <= digit(c) <= 9
+  requires isDigit(c)
+  ensures 0 <= digit(c) <= 9
 {
   (c - '0') as nat
 }
 
 function digitChar(n: nat): char
-requires n < 10
-ensures '0' <= digitChar <= '9'
+  requires n < 10
+  ensures '0' <= digitChar(n) <= '9'
 {
-  (c + '0') as char
+  n as char + '0'
 }
 
 predicate isNatStr(s: string)
@@ -58,8 +58,8 @@ predicate isNatStr(s: string)
 }
 
 function strToNat(s: string): nat
-requires isNatStr(s)
- {
+  requires isNatStr(s)
+{
   if |s| == 0 then 0 else strToNat(s[..|s| - 1]) * 10 + digit(s[0])
 }
 
@@ -70,13 +70,13 @@ function natToStr(i: nat): string
 
 predicate isIntStr(s: string)
 {
-  (s[0] == '-' || isDigit(s[0])) && isNatStr(s[1..])
+  |s| > 0 && (s[0] == '-' || isDigit(s[0])) && isNatStr(s[1..])
 }
 
 function strToInt(s: string): int
-requires isIntStr(s)
+  requires isIntStr(s)
 {
-  if s[0] == '-' then -strToNat(s[1..]) else strToNat(s)
+  if s[0] == '-' then -(strToNat(s[1..]) as int) else strToNat(s)
 }
 
 function intToStr(i: int): string
@@ -101,12 +101,12 @@ method {:main} Main(ghost env :HostEnvironment?)
   var sourceFile: array<char> := HostConstants.GetCommandLineArg(1, env);
   var destFile: array<char> := HostConstants.GetCommandLineArg(2, env);
 
-  if (!isNatStr(kString)) {
-    print("Error: k must be a natural number\n");
+  if (!isNatStr(kString[..])) {
+    print("Error: K must be a natural number\n");
     return;
   }
 
-  var k := strToNat(kString)
+  var k := strToNat(kString[..]);
 
   //  ==== 2. verificar exixtência de ficheiros e abri-los  ====
 
@@ -120,19 +120,16 @@ method {:main} Main(ghost env :HostEnvironment?)
   //  ==== 3. ler o source, encontrar o k elemento e retornar array  ====
 
   // Abrir source para ler os números
-  var sourceFileStream: FileStream;
-  var ok: bool;
-  ok, sourceFileStream := FileStream.Open(sourceFile, env);
-  if (!ok) {
-      print ("Error: Unable to open source file.\n");
-      return;
+  var ok1, sourceFileStream := FileStream.Open(sourceFile, env);
+  if (!ok1) {
+    print ("Error: Unable to open source file\n");
+    return;
   }
 
-  var fileLength: int32;
-  ok, fileLength := FileStream.FileLength(sourceFile, env);
-  if (!ok) {
-        print ("Error: Unable to get file lenght.\n");
-        return;
+  var ok2, fileLength := FileStream.FileLength(sourceFile, env);
+  if (!ok2) {
+    print ("Error: Unable to get file length\n");
+    return;
   }
 
   var inputNumbers: seq<int> := [];
@@ -140,60 +137,89 @@ method {:main} Main(ghost env :HostEnvironment?)
   var bytesRead: nat32 := 0;
   while bytesRead < fileLength as nat32
   {
-      var readBuffer := new byte[1]; // Integer has 4 bytes
-      ok := sourceFileStream.Read(bytesRead, readBuffer, 0, 1);
-      if (!ok) {
-          var temp: bool := sourceFileStream.Close();
-          if (temp) {
-              print("Error: Unable to read from source file.\n");
-              return;
-          }
-          print("Error: Error closing file after trying to close file\n");
-          return;
+    var readBuffer := new byte[1]; // Integer has 4 bytes
+    var ok3 := sourceFileStream.Read(bytesRead, readBuffer, 0, 1);
+    if (!ok3) {
+      var temp: bool := sourceFileStream.Close();
+      if (temp) {
+        print("Error: Unable to read from source file\n");
+        return;
       }
+      print("Error: Error closing source file\n");
+      return;
+    }
 
-      if (readBuffer[0] == '\n') {
-        if (!isIntStr(numberStr)) {
-          print("Error: Invalid integer in source file\n");
-          return;
-        }
-        inputNumbers := inputNumbers + [strToInt(numberStr)];
-        numnberStr := [];
-      } else {
-        numberStr := numberStr + readBuffer[..];
+    if (readBuffer[0] as char == '\n') {
+      if (!isIntStr(numberStr)) {
+        print("Error: Invalid integer in source file\n");
+        return;
       }
+      inputNumbers := inputNumbers + [strToInt(numberStr)];
+      numberStr := [];
+    } else {
+      numberStr := numberStr + [readBuffer[0] as char];
+    }
 
-      bytesRead := bytesRead + 1;
+    bytesRead := bytesRead + 1;
   }
 
   if (|numberStr| > 0) {
-        if (!isIntStr(numberStr)) {
-          print("Error: Invalid integer in source file\n");
-          return;
-        }
-        inputNumbers := inputNumbers + [strToInt(numberStr)];
+    if (!isIntStr(numberStr)) {
+      print("Error: Invalid integer in source file\n");
+      return;
+    }
+    inputNumbers := inputNumbers + [strToInt(numberStr)];
   }
 
   var outputNumbers := new int[|inputNumbers|];
-  for (i: nat := 0 to |inputNumbers|) {
-    outputNumbers[i] = inputNumbers[i];
+  for i: nat := 0 to |inputNumbers| {
+    outputNumbers[i] := inputNumbers[i];
   }
 
-  Find(outputNumbers, k);
-
-  var ok, destFileStream := FileStream.Open(destFile, env);
-  if (!ok) {
-      print ("Error: Unable to destination source file.\n");
-      return;
+  if (k >= outputNumbers.Length) {
+    print("Error: K must be between 0 and the input's length\n");
+    return;
   }
 
+  var x := Find(outputNumbers, k);
+
+  var ok4, destFileStream := FileStream.Open(destFile, env);
+  if (!ok4) {
+    print ("Error: Unable to open destination file\n");
+    return;
+  }
+
+  var bytesWritten: nat32 := 0;
+  var writeBuffer := new byte[1];
   for i: nat := 0 to outputNumbers.Length {
     var number := outputNumbers[i];
     var numberStr := intToStr(number);
 
     for j: nat := 0 to |numberStr| {
-      destFileStream.Write(numberStr[j]);
+      writeBuffer[0] := numberStr[j] as byte;
+      var ok4 := destFileStream.Write(bytesWritten, writeBuffer, 0, 1);
+      if (!ok4) {
+        var temp: bool := destFileStream.Close();
+        if (temp) {
+          print("Error: Unable to write to destination file\n");
+          return;
+        }
+        print("Error: Error closing destination file\n");
+        return;
+      }
+      bytesWritten := bytesWritten + 1;
     }
-    destFileStream.Write('\n');
+    writeBuffer[0] := '\n' as byte;
+    var ok4 := destFileStream.Write(bytesWritten, writeBuffer, 0, 1);
+    if (!ok4) {
+      var temp: bool := destFileStream.Close();
+      if (temp) {
+        print("Error: Unable to write to destination file\n");
+        return;
+      }
+      print("Error: Error closing destination file\n");
+      return;
+    }
+    bytesWritten := bytesWritten + 1;
   }
 }
