@@ -15,15 +15,15 @@ method Partition(a: array<int>, left: nat, right: nat, x: int)
   var k := right - 1;
 
   while (n <= k)
-    invariant left <= m <= n <= right
-    invariant left - 1 <= k <= right - 1
-    invariant a[..left] == old(a[..left])
-    invariant forall i | left <= i < m :: a[i] < x
-    invariant forall i | m <= i < n :: a[i] == x
-    invariant forall i | k + 1 <= i < right :: a[i] > x
-    invariant a[right..] == old(a[right..])
-    invariant forall i | i in a[left..right] :: i in old(a[left..right])
-    invariant x in a[left..n] ==> m < n
+    invariant left <= m <= n <= right // invariant: m and n are within the bounds of the segment
+    invariant left - 1 <= k <= right - 1 // invariant: k is within the bounds of the segment (right-1 because k is an index)
+    invariant a[..left] == old(a[..left]) // invariant: elements before the segment remain unchanged
+    invariant forall i | left <= i < m :: a[i] < x // invariant: all elements before m are less than x
+    invariant forall i | m <= i < n :: a[i] == x // invariant: all elements between m and n are equal to x
+    invariant forall i | k + 1 <= i < right :: a[i] > x // invariant: all elements after k are greater than x
+    invariant a[right..] == old(a[right..]) // invariant: elements after the segment remain unchanged
+    invariant forall i | i in a[left..right] :: i in old(a[left..right]) // invariant: all elements in the segment are from the original segment
+    invariant x in a[left..n] ==> m < n // Invariant: if x is in the range [left, n], there is at least one element equal to x (because m < n)
   {
     // if the current element is less than x -> swap elements at m and n and move both m and n to the right
     if (a[n] < x) {

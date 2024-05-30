@@ -59,66 +59,67 @@ method Find(a: array<int>, k: nat)
     var pivot: nat :| left <= pivot < right; // choose a pivot within the bounds
 
     var value := a[pivot];
-    assert value in a[left..right];
-    assert start <= value <= end;
-    assert forall i | i in a[left..right] :: start <= i <= end;
-    // partittion the array around the pivot value
-    var startIndex: nat, endIndex: nat := Partition(a, left, right, value);
-    assert start <= value <= end;
-    assert forall i | i in a[left..right] :: start <= i <= end;
+    assert value in a[left..right]; // assert that the pivot value is within the current range
+    assert start <= value <= end; // assert that the pivot value is between start and end
+    assert forall i | i in a[left..right] :: start <= i <= end; // assert that all elements in the current range are between start and end
+    var startIndex: nat, endIndex: nat := Partition(a, left, right, value); // partition the array around the pivot value
+    assert start <= value <= end; // assert that the pivot value is between start and end (post-partition check)
+    assert forall i | i in a[left..right] :: start <= i <= end; // assert that all elements in the current range are between start and end (post-partition check)
 
     // if k is within the range of elements equal to the pivot, the k-th smallest element is within this range
     if (startIndex <= k < endIndex) {
-      assert forall i | i in a[..startIndex] :: i in a[..left] || i in a[left..startIndex];
-      assert forall i | i in a[..startIndex] :: i <= value;
-      assert forall i | i in a[endIndex..] :: i in a[right..] || i in a[endIndex..right];
-      assert forall i | i in a[endIndex..] :: i >= value;
-      left, right := startIndex, endIndex;
-      start, end := value, value;
-      assert forall i | i in a[..left] :: i <= start;
-      assert forall i | i in a[left..right] :: start <= i <= end;
-      assert forall i | i in a[right..] :: i >= end;
+      assert forall i | i in a[..startIndex] :: i in a[..left] || i in a[left..startIndex]; // assert that all elements before startIndex are either before left or within the left partition
+      assert forall i | i in a[..startIndex] :: i <= value; // assert that all elements before startIndex are less than or equal to the pivot value
+      assert forall i | i in a[endIndex..] :: i in a[right..] || i in a[endIndex..right]; // assert that all elements after endIndex are either after right or within the right partition
+      assert forall i | i in a[endIndex..] :: i >= value; // assert that all elements after endIndex are greater than or equal to the pivot value
+      left, right := startIndex, endIndex; // narrow the range to the pivot values
+      start, end := value, value; // set start and end to the pivot value
+      assert forall i | i in a[..left] :: i <= start; // assert that all elements before left are less than or equal to start (which is now the pivot value)
+      assert forall i | i in a[left..right] :: start <= i <= end; // assert that all elements in the range [left, right] are equal to the pivot value
+      assert forall i | i in a[right..] :: i >= end; // assert that all elements after right are greater than or equal to end (which is now the pivot value)
       break;
     } else if (k < startIndex) {       // if k is in the left partition
-      assert forall i | i in a[left..startIndex] :: i in a[left..right];
-      assert forall i | i in a[left..startIndex] :: start <= i <= end;
-      assert forall i | i in a[left..startIndex] :: start <= i <= value;
-      assert forall i | i in a[startIndex..right] :: i in a[startIndex..endIndex] || i in a[endIndex..right];
-      assert forall i | i in a[startIndex..right] :: i >= value;
-      assert forall i | i in a[right..] :: i >= value;
-      assert forall i | i in a[startIndex..] :: i in a[startIndex..right] || i in a[right..];
-      assert forall i | i in a[startIndex..] :: i >= value;
+      assert forall i | i in a[left..startIndex] :: i in a[left..right]; // assert that all elements in the left partition are within the current range
+      assert forall i | i in a[left..startIndex] :: start <= i <= end; // assert that all elements in the left partition are between start and end
+      assert forall i | i in a[left..startIndex] :: start <= i <= value; // assert that all elements in the left partition are less than or equal to the pivot value
+      assert forall i | i in a[startIndex..right] :: i in a[startIndex..endIndex] || i in a[endIndex..right]; // assert that all elements in the range [startIndex, right] are either within the equal-to-pivot range or in the right partition
+      assert forall i | i in a[startIndex..right] :: i >= value; // assert that all elements in the range [startIndex, right] are greater than or equal to the pivot value
+      assert forall i | i in a[right..] :: i >= value; // assert that all elements after right are greater than or equal to the pivot value
+      assert forall i | i in a[startIndex..] :: i in a[startIndex..right] || i in a[right..]; // assert that all elements after startIndex are either within the range [startIndex, right] or after right
+      assert forall i | i in a[startIndex..] :: i >= value; // assert that all elements after startIndex are greater than or equal to the pivot value
       right := startIndex;
       end := value;
     } else { // if k is in the right partition
-      assert forall i | i in a[endIndex..right] :: i in a[left..right];
-      assert forall i | i in a[endIndex..right] :: start <= i <= end;
-      assert forall i | i in a[endIndex..right] :: value <= i <= end;
-      assert forall i | i in a[left..endIndex] :: i in a[startIndex..endIndex] || i in a[left..startIndex];
-      assert forall i | i in a[left..endIndex] :: i <= value;
-      assert forall i | i in a[..left] :: i <= value;
-      assert forall i | i in a[..endIndex] :: i in a[left..endIndex] || i in a[..left];
+      assert forall i | i in a[endIndex..right] :: i in a[left..right]; // assert that all elements in the right partition are within the current range 
+      assert forall i | i in a[endIndex..right] :: start <= i <= end; // assert that all elements in the right partition are between start and end
+      assert forall i | i in a[endIndex..right] :: value <= i <= end; // assert that all elements in the right partition are greater than or equal to the pivot value
+      assert forall i | i in a[left..endIndex] :: i in a[startIndex..endIndex] || i in a[left..startIndex];  // assert that all elements in the range [left, endIndex] are either within the equal-to-pivot range or in the left partition
+      assert forall i | i in a[left..endIndex] :: i <= value; // assert that all elements in the range [left, endIndex] are less than or equal to the pivot value
+      assert forall i | i in a[..left] :: i <= value; // assert that all elements before left are less than or equal to the pivot value
+      assert forall i | i in a[..endIndex] :: i in a[left..endIndex] || i in a[..left]; // assert that all elements before endIndex are either within the range [left, endIndex] or before left
       assert forall i | i in a[..endIndex] :: i <= value;
       left := endIndex;
       start := value;
     }
   }
 
-  assert forall i | i in a[..left] :: i <= start;
-  assert forall i | i in a[left..right] :: start <= i <= end;
-  assert forall i | i in a[right..] :: i >= end;
-  assert left <= k < right;
-  assert start == end;
+  assert forall i | i in a[..left] :: i <= start; // assert that all elements before left are less than or equal to start
+  assert forall i | i in a[left..right] :: start <= i <= end; // assert that all elements in the current range [left, right] are between start and end
+  assert forall i | i in a[right..] :: i >= end; // assert that all elements after right are greater than or equal to end
+  assert left <= k < right; // assert that k is within the range [left, right]
+  assert start == end;  // assert that start and end are equal (meaning all elements in the current range are the same)
   // after partitioning, the k-th element is in its correct position
   x := a[k]; // assign the k-th smallest element to x
-  assert x in a[left..right];
-  assert start <= x <= end;
-  assert x == start;
-  assert x == end;
+  assert x in a[left..right]; // assert that the k-th element is within the current range [left, right]
+  assert start <= x <= end; // assert that x is between start and end
+  assert x == start; // assert that x is equal to start
+  assert x == end;   // assert that x is equal to end
+    // assert that all elements before k are less than or equal to x
   assert forall i | i in a[left..k] :: i in a[left..right];
   assert forall i | i in a[..k] :: i in a[..left] || i in a[left..k];
   assert forall i | i in a[..k] :: i <= x;
-  assert forall i | i in a[k..right] :: i in a[left..right];
-  assert forall i | i in a[k..] :: i in a[right..] || i in a[k..right];
-  assert forall i | i in a[k..] :: i >= x;
+
+  assert forall i | i in a[k..right] :: i in a[left..right]; // assert that all elements from k to right are within the current range [left, right]
+  assert forall i | i in a[k..] :: i in a[right..] || i in a[k..right]; // assert that all elements from k onwards are either after right or within the range [k, right]
+  assert forall i | i in a[k..] :: i >= x;  // assert that all elements from k onwards are greater than or equal to x
 }
