@@ -1,10 +1,12 @@
 include "Io.dfy"
 include "Find.dfy"
 
+// check if a character is a digit
 predicate isDigit(c: char) {
   '0' <= c <= '9'
 }
 
+// convert a digit character to its numeric value
 function digit(c: char): nat
   requires isDigit(c)
   ensures 0 <= digit(c) <= 9
@@ -12,6 +14,7 @@ function digit(c: char): nat
   (c - '0') as nat
 }
 
+// convert a numeric value (0-9) to its corresponding digit character
 function digitChar(n: nat): char
   requires n < 10
   ensures '0' <= digitChar(n) <= '9'
@@ -19,34 +22,40 @@ function digitChar(n: nat): char
   n as char + '0'
 }
 
+// check if a string represents a natural number
 predicate isNatStr(s: string)
 {
   forall c | c in s :: isDigit(c)
 }
 
+// convert a string representing a natural number to its numeric value
 function strToNat(s: string): nat
   requires isNatStr(s)
 {
   if |s| == 0 then 0 else strToNat(s[..|s| - 1]) * 10 + digit(s[0])
 }
 
+// convert a natural number to its string representation
 function natToStr(i: nat): string
   ensures isNatStr(natToStr(i))
 {
   if i < 10 then [digitChar(i)] else natToStr(i / 10) + [digitChar(i % 10)]
 }
 
+// check if a string represents an integer
 predicate isIntStr(s: string)
 {
   |s| > 0 && (s[0] == '-' || isDigit(s[0])) && isNatStr(s[1..])
 }
 
+// convert a string representing an integer to its numeric value
 function strToInt(s: string): int
   requires isIntStr(s)
 {
   if s[0] == '-' then -(strToNat(s[1..]) as int) else strToNat(s)
 }
 
+// convert an integer to its string representation
 function intToStr(i: int): string
   ensures isIntStr(intToStr(i))
 {
@@ -57,19 +66,20 @@ method {:main} Main(ghost env: HostEnvironment?)
   requires env != null && env.Valid() && env.ok.ok()
   modifies env.ok, env.files // necessário quando chama FileStream.Open
 {
-  // ====  1. argumentos da linha de comandos ===
+  // ====  1. Command-line arguments ===
 
-  // verificar número de argumentos dados na linha de comandos
+  // check the number of command-line arguments
   var numArgs: uint32 := HostConstants.NumCommandLineArgs(env);
   if (numArgs != 4) { // TODO: 3 ou 4?
     print "Error: Expected 3 arguments, found ", numArgs, ". Usage: <K> <source_file> <destination_file>\n";
     return;
   }
-  // Pegar argumentos da linha de comandos
+  // get command-line arguments
   var kString: array<char> := HostConstants.GetCommandLineArg(1, env);
   var sourceFile: array<char> := HostConstants.GetCommandLineArg(2, env);
   var destFile: array<char> := HostConstants.GetCommandLineArg(3, env);
 
+   // check if the first argument is a valid natural number
   if (!isNatStr(kString[..])) {
     print("Error: K must be a natural number\n");
     return;
@@ -77,30 +87,32 @@ method {:main} Main(ghost env: HostEnvironment?)
 
   var k := strToNat(kString[..]);
 
-  //  ==== 2. verificar exixtência de ficheiros e abri-los  ====
+  //  ==== 2. Check file existence and open files  ====
 
-  //  verificar se o ficheiro de destino já existe
+  //  check if the destination file already exists
   var destFileExists: bool := FileStream.FileExists(destFile, env);
   if (destFileExists) {
     print("Error: Destination file already exists\n");
     return;
   }
 
-  //  ==== 3. ler o source, encontrar o k elemento e retornar array  ====
+  //  ==== 3. Read the source file, find the k-th smallest element, and write the result  ====
 
-  // Abrir source para ler os números
+  // open the source file to read the numbers
   var ok1, sourceFileStream := FileStream.Open(sourceFile, env);
   if (!ok1) {
     print ("Error: Unable to open source file\n");
     return;
   }
 
+  // get the length of the source file
   var ok2, fileLength := FileStream.FileLength(sourceFile, env);
   if (!ok2) {
     print ("Error: Unable to get file length\n");
     return;
   }
 
+  // read integers from the source file
   var inputNumbers: seq<int> := [];
   var numberStr: string := [];
   var bytesRead: nat32 := 0;
@@ -119,6 +131,7 @@ method {:main} Main(ghost env: HostEnvironment?)
       return;
     }
 
+  // if a newline is encountered, convert the collected characters to an integer
     if (readBuffer[0] as char == '\n') {
       if (!isIntStr(numberStr)) {
         print("Error: Invalid integer in source file\n");
@@ -133,6 +146,7 @@ method {:main} Main(ghost env: HostEnvironment?)
     bytesRead := bytesRead + 1;
   }
 
+  // if the last line did not end with a newline, process the remaining characters
   if (|numberStr| > 0) {
     if (!isIntStr(numberStr)) {
       print("Error: Invalid integer in source file\n");
@@ -141,6 +155,7 @@ method {:main} Main(ghost env: HostEnvironment?)
     inputNumbers := inputNumbers + [strToInt(numberStr)];
   }
 
+  // convert the sequence to an array
   var outputNumbers := new int[|inputNumbers|];
   for i: nat := 0 to |inputNumbers|
     invariant env.Valid() && env.ok.ok()
@@ -148,19 +163,23 @@ method {:main} Main(ghost env: HostEnvironment?)
     outputNumbers[i] := inputNumbers[i];
   }
 
+  // check if k is within the valid range
   if (k >= outputNumbers.Length) {
     print("Error: K must be between 0 and the input's length\n");
     return;
   }
 
+  // find the k-th smallest element using the Find method
   var x := Find(outputNumbers, k);
 
+  // open the destination file to write the output
   var ok4, destFileStream := FileStream.Open(destFile, env);
   if (!ok4) {
     print ("Error: Unable to open destination file\n");
     return;
   }
 
+  // write the sorted numbers to the destination file
   var bytesWritten: nat32 := 0;
   var writeBuffer := new byte[1];
   for i: nat := 0 to outputNumbers.Length
@@ -186,6 +205,7 @@ method {:main} Main(ghost env: HostEnvironment?)
       }
       bytesWritten := bytesWritten + 1;
     }
+    // write a newline character
     writeBuffer[0] := '\n' as byte;
     var ok4 := destFileStream.Write(bytesWritten, writeBuffer, 0, 1);
     if (!ok4) {
