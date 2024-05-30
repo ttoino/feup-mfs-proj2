@@ -79,7 +79,7 @@ method {:main} Main(ghost env: HostEnvironment?)
   var sourceFile: array<char> := HostConstants.GetCommandLineArg(2, env);
   var destFile: array<char> := HostConstants.GetCommandLineArg(3, env);
 
-   // check if the first argument is a valid natural number
+  // check if the first argument is a valid natural number
   if (!isNatStr(kString[..])) {
     print("Error: K must be a natural number\n");
     return;
@@ -121,12 +121,7 @@ method {:main} Main(ghost env: HostEnvironment?)
 
   var okRead := sourceFileStream.Read(0, readBuffer, 0, fileLength);
   if (!okRead) {
-    var temp: bool := sourceFileStream.Close();
-    if (temp) {
-      print("Error: Unable to read from source file\n");
-      return;
-    }
-    print("Error: Error closing source file\n");
+    print("Error: Unable to read from source file\n");
     return;
   }
 
@@ -185,6 +180,8 @@ method {:main} Main(ghost env: HostEnvironment?)
   var outputStr := "";
   for i: nat := 0 to outputNumbers.Length
     invariant env.Valid() && env.ok.ok()
+    // ensure that the character is within the valid range
+    invariant forall c | c in outputStr :: c <= '\U{ff}'
   {
     outputStr := outputStr + intToStr(outputNumbers[i]) + "\n";
   }
@@ -194,6 +191,8 @@ method {:main} Main(ghost env: HostEnvironment?)
   for i: nat := 0 to |outputStr|
     invariant env.Valid() && env.ok.ok()
   {
+    // this assert is required to prove that the character is within the valid range
+    assert outputStr[i] in outputStr;
     outputBuffer[i] := outputStr[i] as byte;
   }
 
@@ -204,15 +203,16 @@ method {:main} Main(ghost env: HostEnvironment?)
     return;
   }
 
+  // ensure the length is within int32 range
+  if (outputBuffer.Length >= 0x80000000) {
+    print("Error: Output is too large\n");
+    return;
+  }
+
   // write the output to the destination file
   var okWrite := destFileStream.Write(0, outputBuffer, 0, outputBuffer.Length as int32);
   if (!okWrite) {
-    var temp: bool := destFileStream.Close();
-    if (temp) {
-      print("Error: Unable to write to destination file\n");
-      return;
-    }
-    print("Error: Error closing destination file\n");
+    print("Error: Unable to write to destination file\n");
     return;
   }
 }
