@@ -99,15 +99,15 @@ method {:main} Main(ghost env: HostEnvironment?)
   //  ==== 3. Read the source file, find the k-th smallest element, and write the result  ====
 
   // open the source file to read the numbers
-  var ok1, sourceFileStream := FileStream.Open(sourceFile, env);
-  if (!ok1) {
+  var okOpenSource, sourceFileStream := FileStream.Open(sourceFile, env);
+  if (!okOpenSource) {
     print ("Error: Unable to open source file\n");
     return;
   }
 
   // get the length of the source file
-  var ok2, fileLength := FileStream.FileLength(sourceFile, env);
-  if (!ok2) {
+  var okLength, fileLength := FileStream.FileLength(sourceFile, env);
+  if (!okLength) {
     print ("Error: Unable to get file length\n");
     return;
   }
@@ -116,49 +116,58 @@ method {:main} Main(ghost env: HostEnvironment?)
   var inputNumbers: seq<int> := [];
   var numberStr: string := [];
   var bytesRead: nat32 := 0;
-  while bytesRead < fileLength as nat32
-    invariant env.Valid() && env.ok.ok()
-  {
-    var readBuffer := new byte[1];
-    var ok3 := sourceFileStream.Read(bytesRead, readBuffer, 0, 1);
-    if (!ok3) {
-      var temp: bool := sourceFileStream.Close();
-      if (temp) {
-        print("Error: Unable to read from source file\n");
-        return;
-      }
-      print("Error: Error closing source file\n");
+
+  var readBuffer := new byte[fileLength];
+
+  var okRead := sourceFileStream.Read(0, readBuffer, 0, fileLength);
+  if (!okRead) {
+    var temp: bool := sourceFileStream.Close();
+    if (temp) {
+      print("Error: Unable to read from source file\n");
       return;
     }
-
-  // if a newline is encountered, convert the collected characters to an integer
-    if (readBuffer[0] as char == '\n') {
-      if (!isIntStr(numberStr)) {
-        print("Error: Invalid integer in source file\n");
-        return;
-      }
-      inputNumbers := inputNumbers + [strToInt(numberStr)];
-      numberStr := [];
-    } else {
-      numberStr := numberStr + [readBuffer[0] as char];
-    }
-
-    bytesRead := bytesRead + 1;
+    print("Error: Error closing source file\n");
+    return;
   }
 
-  // if the last line did not end with a newline, process the remaining characters
-  if (|numberStr| > 0) {
-    if (!isIntStr(numberStr)) {
+  // split the input by '\n'
+  var numsStr := [];
+  var currentNum := "";
+  for i: int := 0 to readBuffer.Length
+    invariant env.Valid() && env.ok.ok()
+  {
+    if (readBuffer[i] as char != '\n') {
+      currentNum := currentNum + [readBuffer[i] as char];
+    } else {
+      if (currentNum != "") {
+        numsStr := numsStr + [currentNum];
+      }
+      currentNum := "";
+    }
+  }
+
+  // if the last number is not followed by a newline character
+  if (currentNum != "") {
+    numsStr := numsStr + [currentNum];
+  }
+
+  // convert the sequence of strings to a sequence of integers
+  for i: int := 0 to |numsStr|
+    invariant env.Valid() && env.ok.ok()
+  {
+    if (isIntStr(numsStr[i])) {
+      inputNumbers := inputNumbers + [strToInt(numsStr[i])];
+    } else {
       print("Error: Invalid integer in source file\n");
       return;
     }
-    inputNumbers := inputNumbers + [strToInt(numberStr)];
   }
 
   // convert the sequence to an array
   var outputNumbers := new int[|inputNumbers|];
   for i: nat := 0 to |inputNumbers|
     invariant env.Valid() && env.ok.ok()
+    modifies outputNumbers
   {
     outputNumbers[i] := inputNumbers[i];
   }
@@ -172,51 +181,38 @@ method {:main} Main(ghost env: HostEnvironment?)
   // find the k-th smallest element using the Find method
   var x := Find(outputNumbers, k);
 
+  // convert outputNumbers to a string
+  var outputStr := "";
+  for i: nat := 0 to outputNumbers.Length
+    invariant env.Valid() && env.ok.ok()
+  {
+    outputStr := outputStr + intToStr(outputNumbers[i]) + "\n";
+  }
+
+  // convert the string to a byte array
+  var outputBuffer := new byte[|outputStr|];
+  for i: nat := 0 to |outputStr|
+    invariant env.Valid() && env.ok.ok()
+  {
+    outputBuffer[i] := outputStr[i] as byte;
+  }
+
   // open the destination file to write the output
-  var ok4, destFileStream := FileStream.Open(destFile, env);
-  if (!ok4) {
+  var okOpenDest, destFileStream := FileStream.Open(destFile, env);
+  if (!okOpenDest) {
     print ("Error: Unable to open destination file\n");
     return;
   }
 
-  // write the sorted numbers to the destination file
-  var bytesWritten: nat32 := 0;
-  var writeBuffer := new byte[1];
-  for i: nat := 0 to outputNumbers.Length
-    invariant env.Valid() && env.ok.ok()
-  {
-    var number := outputNumbers[i];
-    var numberStr := intToStr(number);
-
-    for j: nat := 0 to |numberStr|
-      invariant env.Valid() && env.ok.ok()
-    {
-      assert numberStr[j] in numberStr;
-      writeBuffer[0] := numberStr[j] as byte;
-      var ok4 := destFileStream.Write(bytesWritten, writeBuffer, 0, 1);
-      if (!ok4) {
-        var temp: bool := destFileStream.Close();
-        if (temp) {
-          print("Error: Unable to write to destination file\n");
-          return;
-        }
-        print("Error: Error closing destination file\n");
-        return;
-      }
-      bytesWritten := bytesWritten + 1;
-    }
-    // write a newline character
-    writeBuffer[0] := '\n' as byte;
-    var ok4 := destFileStream.Write(bytesWritten, writeBuffer, 0, 1);
-    if (!ok4) {
-      var temp: bool := destFileStream.Close();
-      if (temp) {
-        print("Error: Unable to write to destination file\n");
-        return;
-      }
-      print("Error: Error closing destination file\n");
+  // write the output to the destination file
+  var okWrite := destFileStream.Write(0, outputBuffer, 0, outputBuffer.Length as int32);
+  if (!okWrite) {
+    var temp: bool := destFileStream.Close();
+    if (temp) {
+      print("Error: Unable to write to destination file\n");
       return;
     }
-    bytesWritten := bytesWritten + 1;
+    print("Error: Error closing destination file\n");
+    return;
   }
 }
