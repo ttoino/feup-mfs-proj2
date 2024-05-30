@@ -181,7 +181,8 @@ method {:main} Main(ghost env: HostEnvironment?)
   for i: nat := 0 to outputNumbers.Length
     invariant env.Valid() && env.ok.ok()
     // ensure that the character is within the valid range
-    invariant forall c | c in outputStr :: c <= '\U{ff}'
+    // it errors in vscode, but it works with --unicode-char:false
+    invariant forall c | c in outputStr :: c <= '\u00ff'
   {
     outputStr := outputStr + intToStr(outputNumbers[i]) + "\n";
   }
@@ -213,6 +214,12 @@ method {:main} Main(ghost env: HostEnvironment?)
   var okWrite := destFileStream.Write(0, outputBuffer, 0, outputBuffer.Length as int32);
   if (!okWrite) {
     print("Error: Unable to write to destination file\n");
+    return;
+  }
+
+  var okClose := destFileStream.Close();
+  if (!okClose) {
+    print("Error: Unable to close destination file\n");
     return;
   }
 }
